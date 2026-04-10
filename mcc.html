@@ -1,175 +1,465 @@
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido' });
-
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: 'Chave de API não configurada.' });
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Análise do MCC — Lógica do Design®</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --black: #0e0e0e;
+    --white: #f8f6f1;
+    --cream: #ede9e0;
+    --accent: #c8b89a;
+    --muted: #8a8278;
+    --border: rgba(14,14,14,0.12);
+    --critico: #8b2323;
+    --critico-bg: #fceaea;
+    --moderado: #7a5c1a;
+    --moderado-bg: #fdf3dc;
+    --controlado: #1a4a2e;
+    --controlado-bg: #e8f3ec;
+    --alta: #8b2323;
+    --alta-bg: #fceaea;
+    --media: #7a5c1a;
+    --media-bg: #fdf3dc;
+    --baixa: #1a4a2e;
+    --baixa-bg: #e8f3ec;
   }
 
-  const {
-    nome, segmento, cidade,
-    site, instagram, gmaps, whatsapp, outros,
-    jornada, metricas, contexto,
-    diagnostico, posicionamento
-  } = req.body;
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--white); color: var(--black); min-height: 100vh; font-weight: 300; }
+  .page { max-width: 720px; margin: 0 auto; padding: 0 24px 80px; }
 
-  if (!nome || !segmento) {
-    return res.status(400).json({ error: 'Nome e segmento são obrigatórios.' });
+  header { padding: 48px 0 40px; border-bottom: 1px solid var(--border); margin-bottom: 48px; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+  .logo-block { display: flex; flex-direction: column; gap: 6px; }
+  .logo-tag { font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  .logo-name { font-family: 'DM Serif Display', serif; font-size: 26px; line-height: 1; }
+  .logo-name em { font-style: italic; color: var(--accent); }
+  .nav-links { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .nav-link { font-size: 13px; color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--border); padding-bottom: 2px; }
+  .nav-link:hover { color: var(--black); }
+  .header-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  @media (max-width: 520px) { header { flex-direction: column; align-items: flex-start; } .nav-links { align-items: flex-start; } }
+
+  .section-label { font-size: 10px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  .card { border: 1px solid var(--border); border-radius: 4px; padding: 28px; margin-bottom: 16px; }
+  .form-group { margin-bottom: 20px; }
+  .form-group:last-child { margin-bottom: 0; }
+  label { display: block; font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  input, textarea { width: 100%; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 300; color: var(--black); background: var(--cream); border: 1px solid transparent; border-radius: 3px; padding: 11px 14px; transition: border-color 0.15s; outline: none; }
+  input:focus, textarea:focus { border-color: var(--accent); background: #fff; }
+  textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
+  input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.6; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 500px) { .row { grid-template-columns: 1fr; } }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+
+  .toggle-label { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; cursor: pointer; font-size: 13px; color: var(--muted); }
+  .toggle-label input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--black); }
+
+  .run-btn { width: 100%; padding: 16px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; letter-spacing: 0.06em; color: var(--white); background: var(--black); border: none; border-radius: 3px; cursor: pointer; transition: opacity 0.15s; }
+  .run-btn:hover { opacity: 0.85; }
+  .run-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .error-msg { margin-top: 14px; padding: 12px 16px; background: var(--critico-bg); color: var(--critico); border-radius: 3px; font-size: 13px; line-height: 1.6; }
+
+  .loading-wrap { padding: 48px 0; display: flex; flex-direction: column; gap: 14px; }
+  .loading-step { display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--muted); transition: color 0.3s; }
+  .loading-step.active { color: var(--black); }
+  .loading-step.done { color: var(--controlado); }
+  .step-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); flex-shrink: 0; transition: background 0.3s; }
+  .loading-step.active .step-dot { background: var(--black); }
+  .loading-step.done .step-dot { background: var(--controlado); }
+
+  .result-header { margin-bottom: 40px; }
+  .result-tag { font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; display: block; }
+  .result-title { font-family: 'DM Serif Display', serif; font-size: 32px; line-height: 1.15; margin-bottom: 14px; }
+  .result-resumo { font-size: 15px; line-height: 1.75; color: #444; }
+
+  .score-geral { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 3px; margin-bottom: 20px; }
+  .score-geral span { font-size: 12px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+  .score-critico { background: var(--critico-bg); color: var(--critico); }
+  .score-moderado { background: var(--moderado-bg); color: var(--moderado); }
+  .score-controlado { background: var(--controlado-bg); color: var(--controlado); }
+
+  .momento-block { border: 1px solid var(--border); border-radius: 4px; margin-bottom: 16px; overflow: hidden; }
+  .momento-header { padding: 20px 24px; display: flex; align-items: center; gap: 14px; background: var(--cream); border-bottom: 1px solid var(--border); }
+  .momento-icon { font-size: 20px; }
+  .momento-titulo { font-family: 'DM Serif Display', serif; font-size: 20px; flex: 1; }
+  .score-badge { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 12px; border-radius: 2px; }
+
+  .momento-body { padding: 24px; }
+  .momento-desc { font-size: 14px; line-height: 1.8; color: #333; margin-bottom: 24px; }
+
+  .pontos-label { font-size: 10px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+
+  .ponto-item { border: 1px solid var(--border); border-radius: 3px; padding: 14px 16px; margin-bottom: 8px; }
+  .ponto-item:last-child { margin-bottom: 0; }
+  .ponto-top { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .ponto-canal { font-size: 12px; font-weight: 500; color: var(--black); }
+  .sev-badge { font-size: 10px; font-weight: 500; letter-spacing: 0.08em; padding: 2px 8px; border-radius: 2px; margin-left: auto; }
+  .sev-alta { background: var(--alta-bg); color: var(--alta); }
+  .sev-media { background: var(--media-bg); color: var(--media); }
+  .sev-baixa { background: var(--baixa-bg); color: var(--baixa); }
+  .ponto-problema { font-size: 13px; color: #333; line-height: 1.6; margin-bottom: 4px; }
+  .ponto-evidencia { font-size: 12px; color: var(--muted); font-style: italic; line-height: 1.5; }
+
+  .acoes-block { background: var(--cream); border-radius: 3px; padding: 16px; margin-top: 20px; }
+  .acoes-label { font-size: 10px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .acao-item { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; font-size: 13px; line-height: 1.6; }
+  .acao-item:last-child { margin-bottom: 0; }
+  .acao-meta { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; }
+  .prazo-badge { font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 2px; background: var(--white); border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+  .impacto-dot { width: 6px; height: 6px; border-radius: 50%; margin: 0 auto; }
+  .imp-alto { background: var(--critico); }
+  .imp-medio { background: var(--moderado); }
+  .imp-baixo { background: var(--controlado); }
+
+  .plano-block { border: 1px solid var(--border); border-radius: 4px; overflow: hidden; margin-bottom: 16px; }
+  .plano-item { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; gap: 20px; }
+  .plano-item:last-child { border-bottom: none; }
+  .plano-semana { font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: 0.08em; min-width: 90px; padding-top: 2px; }
+  .plano-content { flex: 1; }
+  .plano-foco { font-size: 14px; font-weight: 500; color: var(--black); margin-bottom: 8px; }
+  .plano-acoes { display: flex; flex-direction: column; gap: 4px; }
+  .plano-acao { font-size: 13px; color: #555; line-height: 1.6; display: flex; gap: 8px; }
+  .plano-dash { color: var(--accent); flex-shrink: 0; }
+
+  .quickwin-block { background: var(--black); color: var(--white); border-radius: 4px; padding: 28px; margin-bottom: 16px; }
+  .quickwin-label { font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; display: block; }
+  .quickwin-text { font-family: 'DM Serif Display', serif; font-size: 20px; line-height: 1.45; }
+
+  .action-bar { display: flex; gap: 12px; margin-top: 32px; flex-wrap: wrap; }
+  .action-btn { padding: 12px 20px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; border-radius: 3px; transition: background 0.15s; background: transparent; border: 1px solid var(--border); color: var(--black); }
+  .action-btn:hover { background: var(--cream); }
+
+  footer { margin-top: 60px; padding-top: 24px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="logo-block">
+      <span class="logo-tag">Miligrama MG</span>
+      <div class="logo-name">Lógica do <em>Design</em>®</div>
+    </div>
+    <div class="nav-links">
+      <span class="header-desc">Agente de análise do MCC</span>
+      <a href="/" class="nav-link">← Diagnóstico</a>
+      <a href="/posicionamento.html" class="nav-link">← Posicionamento</a>
+    </div>
+  </header>
+
+  <div id="form-view">
+    <div class="card">
+      <div class="section-label">Dados da marca</div>
+      <div class="form-group">
+        <label>Nome da marca</label>
+        <input type="text" id="nome" placeholder="Ex: Occulare Oftalmologia" />
+      </div>
+      <div class="row">
+        <div class="form-group">
+          <label>Segmento</label>
+          <input type="text" id="segmento" placeholder="Ex: saúde, moda..." />
+        </div>
+        <div class="form-group">
+          <label>Cidade / região</label>
+          <input type="text" id="cidade" placeholder="Ex: Pouso Alegre, MG" />
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Canais digitais</div>
+      <div class="row">
+        <div class="form-group">
+          <label>Site</label>
+          <input type="text" id="site" placeholder="https://..." />
+        </div>
+        <div class="form-group">
+          <label>Instagram</label>
+          <input type="text" id="instagram" placeholder="@usuario" />
+        </div>
+      </div>
+      <div class="row">
+        <div class="form-group">
+          <label>Google / Maps</label>
+          <input type="text" id="gmaps" placeholder="Link ou nome" />
+        </div>
+        <div class="form-group">
+          <label>WhatsApp Business</label>
+          <input type="text" id="whatsapp" placeholder="(35) 99999-9999" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Outros canais</label>
+        <input type="text" id="outros" placeholder="Facebook, iFood, LinkedIn..." />
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Jornada e métricas</div>
+      <div class="form-group">
+        <label>Como o cliente chega até a marca hoje?</label>
+        <textarea id="jornada" placeholder="Ex: vê um post no Instagram → acessa o perfil → clica no link da bio → vai para o WhatsApp → aguarda resposta..."></textarea>
+        <p class="hint">Descreva o caminho real que o cliente percorre, do primeiro contato até a decisão.</p>
+      </div>
+      <div class="form-group">
+        <label>Métricas disponíveis</label>
+        <textarea id="metricas" placeholder="Ex: taxa de resposta no WhatsApp, tempo médio de resposta, taxa de abandono no site, engajamento no Instagram..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Contexto adicional</label>
+        <textarea id="contexto" placeholder="Principais reclamações de clientes, onde o dono sente que perde mais, sazonalidade, ticket médio..."></textarea>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Contexto dos outros agentes (opcional)</div>
+      <label class="toggle-label">
+        <input type="checkbox" id="usarDiag" onchange="toggleArea('diagArea')" />
+        <span>Incluir dados do Agente de Diagnóstico</span>
+      </label>
+      <div id="diagArea" style="display:none;" class="form-group">
+        <label>Diagnóstico (Agente 1)</label>
+        <textarea id="diagnostico" style="min-height:100px;" placeholder="Cole o resumo executivo e os dados dos 4 eixos..."></textarea>
+      </div>
+      <label class="toggle-label" style="margin-top:8px;">
+        <input type="checkbox" id="usarPos" onchange="toggleArea('posArea')" />
+        <span>Incluir dados do Agente de Posicionamento</span>
+      </label>
+      <div id="posArea" style="display:none;" class="form-group">
+        <label>Posicionamento (Agente 2)</label>
+        <textarea id="posicionamento" style="min-height:100px;" placeholder="Cole o posicionamento central e o circuito SE-ENTÃO-SENÃO..."></textarea>
+      </div>
+    </div>
+
+    <button class="run-btn" id="runBtn" onclick="rodar()">Analisar o MCC →</button>
+    <div id="err"></div>
+  </div>
+
+  <div id="loading-view" style="display:none;">
+    <div class="loading-wrap">
+      <div class="loading-step" id="ls1"><div class="step-dot"></div>Buscando informações públicas da marca...</div>
+      <div class="loading-step" id="ls2"><div class="step-dot"></div>Mapeando pontos de perda na atração</div>
+      <div class="loading-step" id="ls3"><div class="step-dot"></div>Analisando conversão e retenção</div>
+      <div class="loading-step" id="ls4"><div class="step-dot"></div>Montando plano de ação de 90 dias</div>
+    </div>
+  </div>
+
+  <div id="result-view" style="display:none;"></div>
+
+  <footer>
+    <span>Lógica do Design® — Miligrama MG</span>
+    <span>Análise gerada por IA com dados públicos</span>
+  </footer>
+</div>
+
+<script>
+  function toggleArea(id) {
+    const el = document.getElementById(id);
+    const cb = document.getElementById(id === 'diagArea' ? 'usarDiag' : 'usarPos');
+    el.style.display = cb.checked ? 'block' : 'none';
   }
 
-  const canais = [
-    site ? 'Site: ' + site : '',
-    instagram ? 'Instagram: ' + instagram : '',
-    gmaps ? 'Google/Maps: ' + gmaps : '',
-    whatsapp ? 'WhatsApp: ' + whatsapp : '',
-    outros ? 'Outros: ' + outros : ''
-  ].filter(Boolean).join(' | ') || 'não informados';
-
-  const extras = [
-    diagnostico ? 'DIAGNÓSTICO (Agente 1):\n' + diagnostico : '',
-    posicionamento ? 'POSICIONAMENTO (Agente 2):\n' + posicionamento : ''
-  ].filter(Boolean).join('\n\n');
-
-  const prompt = `Você é o Agente de Análise do MCC (Meio do Caminho Confuso) da Lógica do Design® — método estratégico da agência Miligrama MG.
-
-O MCC é o espaço entre o momento em que o cliente potencial descobre a marca e o momento em que ele toma uma decisão. É nesse espaço que a maioria das marcas perde clientes sem perceber.
-
-Sua missão é identificar onde, como e por que esta marca está perdendo clientes no MCC — analisando três momentos críticos:
-1. ATRAÇÃO: o cliente chega até a marca? (encontrabilidade, primeira impressão, clareza)
-2. CONVERSÃO: o cliente que chega toma uma ação? (CTA, fricção, confiança, urgência)
-3. RETENÇÃO: o cliente que converteu volta e indica? (experiência, relacionamento, pós-venda)
-
-Use web search para buscar informações públicas sobre esta marca antes de gerar a análise.
-
-DADOS DA MARCA:
-Nome: ${nome}
-Segmento: ${segmento}
-Cidade: ${cidade || 'não informada'}
-Canais: ${canais}
-Jornada do cliente descrita: ${jornada || 'não informada'}
-Métricas disponíveis: ${metricas || 'não fornecidas'}
-Contexto adicional: ${contexto || 'não fornecido'}
-${extras}
-
-Retorne APENAS um JSON válido, sem texto antes ou depois, sem markdown:
-
-{
-  "marca": "${nome}",
-  "resumo_mcc": "2-3 frases descrevendo onde está o maior vazamento de clientes desta marca",
-  "score_geral": "crítico|moderado|controlado",
-  "momentos": [
-    {
-      "nome": "Atração",
-      "score": "crítico|moderado|controlado",
-      "descricao": "o que está funcionando e o que está falhando na atração de clientes em 3-4 frases",
-      "pontos_de_perda": [
-        {
-          "canal": "nome do canal",
-          "problema": "descrição do problema específico",
-          "severidade": "alta|média|baixa",
-          "evidencia": "dado ou observação que comprova o problema"
-        }
-      ],
-      "acoes": [
-        {
-          "acao": "descrição da ação corretiva",
-          "prazo": "imediato|30 dias|90 dias",
-          "impacto": "alto|médio|baixo"
-        }
-      ]
-    },
-    {
-      "nome": "Conversão",
-      "score": "crítico|moderado|controlado",
-      "descricao": "análise da conversão em 3-4 frases",
-      "pontos_de_perda": [
-        {
-          "canal": "nome do canal",
-          "problema": "descrição do problema",
-          "severidade": "alta|média|baixa",
-          "evidencia": "dado ou observação"
-        }
-      ],
-      "acoes": [
-        {
-          "acao": "descrição da ação corretiva",
-          "prazo": "imediato|30 dias|90 dias",
-          "impacto": "alto|médio|baixo"
-        }
-      ]
-    },
-    {
-      "nome": "Retenção",
-      "score": "crítico|moderado|controlado",
-      "descricao": "análise da retenção em 3-4 frases",
-      "pontos_de_perda": [
-        {
-          "canal": "nome do canal",
-          "problema": "descrição do problema",
-          "severidade": "alta|média|baixa",
-          "evidencia": "dado ou observação"
-        }
-      ],
-      "acoes": [
-        {
-          "acao": "descrição da ação corretiva",
-          "prazo": "imediato|30 dias|90 dias",
-          "impacto": "alto|médio|baixo"
-        }
-      ]
+  let stepTimer;
+  function setStep(n) {
+    for (let i = 1; i <= 4; i++) {
+      const el = document.getElementById('ls' + i);
+      if (!el) continue;
+      el.className = 'loading-step' + (i < n ? ' done' : i === n ? ' active' : '');
     }
-  ],
-  "plano_90_dias": [
-    { "semana": "Semana 1-2", "foco": "o que fazer primeiro e por quê", "acoes": ["ação 1", "ação 2"] },
-    { "semana": "Semana 3-4", "foco": "segundo bloco de ações", "acoes": ["ação 1", "ação 2"] },
-    { "semana": "Mês 2", "foco": "terceiro bloco", "acoes": ["ação 1", "ação 2"] },
-    { "semana": "Mês 3", "foco": "consolidação", "acoes": ["ação 1", "ação 2"] }
-  ],
-  "quick_win": "a única ação que esta marca pode tomar esta semana com maior impacto no MCC, em 1-2 frases diretas"
-}`;
-
-  try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 3000,
-        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return res.status(500).json({ error: data.error?.message || 'Erro na API' });
-    }
-
-    let jsonText = '';
-    for (const block of data.content || []) {
-      if (block.type === 'text') jsonText += block.text;
-    }
-
-    const start = jsonText.indexOf('{');
-    const end = jsonText.lastIndexOf('}');
-    if (start === -1 || end === -1) {
-      return res.status(500).json({ error: 'Resposta inválida da API' });
-    }
-
-    const result = JSON.parse(jsonText.substring(start, end + 1));
-    return res.status(200).json(result);
-
-  } catch (err) {
-    return res.status(500).json({ error: err.message || 'Erro interno' });
   }
-}
+
+  async function rodar() {
+    const nome = document.getElementById('nome').value.trim();
+    const segmento = document.getElementById('segmento').value.trim();
+    const errEl = document.getElementById('err');
+    errEl.innerHTML = '';
+
+    if (!nome || !segmento) {
+      errEl.innerHTML = '<div class="error-msg">Preencha ao menos o nome da marca e o segmento.</div>';
+      return;
+    }
+
+    document.getElementById('runBtn').disabled = true;
+    document.getElementById('form-view').style.display = 'none';
+    document.getElementById('loading-view').style.display = 'block';
+    setStep(1);
+    let s = 1;
+    stepTimer = setInterval(() => { s = Math.min(s + 1, 4); setStep(s); }, 2800);
+
+    const body = {
+      nome, segmento,
+      cidade: document.getElementById('cidade').value.trim(),
+      site: document.getElementById('site').value.trim(),
+      instagram: document.getElementById('instagram').value.trim(),
+      gmaps: document.getElementById('gmaps').value.trim(),
+      whatsapp: document.getElementById('whatsapp').value.trim(),
+      outros: document.getElementById('outros').value.trim(),
+      jornada: document.getElementById('jornada').value.trim(),
+      metricas: document.getElementById('metricas').value.trim(),
+      contexto: document.getElementById('contexto').value.trim(),
+      diagnostico: document.getElementById('usarDiag').checked ? document.getElementById('diagnostico').value.trim() : '',
+      posicionamento: document.getElementById('usarPos').checked ? document.getElementById('posicionamento').value.trim() : ''
+    };
+
+    try {
+      const res = await fetch('/api/mcc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json();
+      clearInterval(stepTimer);
+
+      if (!res.ok || data.error) throw new Error(data.error || 'Erro ao analisar o MCC');
+
+      document.getElementById('loading-view').style.display = 'none';
+      renderResult(data);
+
+    } catch (err) {
+      clearInterval(stepTimer);
+      document.getElementById('loading-view').style.display = 'none';
+      document.getElementById('form-view').style.display = 'block';
+      document.getElementById('runBtn').disabled = false;
+      errEl.innerHTML = '<div class="error-msg">Erro: ' + (err.message || 'Tente novamente') + '</div>';
+    }
+  }
+
+  function scoreClass(s) {
+    if (!s) return '';
+    const v = s.toLowerCase();
+    if (v === 'crítico' || v === 'critico') return 'score-critico';
+    if (v === 'controlado') return 'score-controlado';
+    return 'score-moderado';
+  }
+
+  function scoreLabel(s) {
+    if (!s) return '';
+    const v = s.toLowerCase();
+    if (v === 'crítico' || v === 'critico') return 'Crítico';
+    if (v === 'controlado') return 'Controlado';
+    return 'Moderado';
+  }
+
+  function sevClass(s) {
+    if (!s) return '';
+    const v = s.toLowerCase();
+    if (v === 'alta') return 'sev-alta';
+    if (v === 'baixa') return 'sev-baixa';
+    return 'sev-media';
+  }
+
+  function sevLabel(s) {
+    if (!s) return '';
+    const v = s.toLowerCase();
+    if (v === 'alta') return 'Alta';
+    if (v === 'baixa') return 'Baixa';
+    return 'Média';
+  }
+
+  function impClass(s) {
+    if (!s) return '';
+    const v = s.toLowerCase();
+    if (v === 'alto') return 'imp-alto';
+    if (v === 'baixo') return 'imp-baixo';
+    return 'imp-medio';
+  }
+
+  const momentoIcons = { 'Atração': '🎯', 'Conversão': '⚡', 'Retenção': '🔁' };
+
+  function renderResult(r) {
+    const momentosHtml = (r.momentos || []).map(m => {
+      const pontosHtml = (m.pontos_de_perda || []).map(p => `
+        <div class="ponto-item">
+          <div class="ponto-top">
+            <span class="ponto-canal">${p.canal}</span>
+            <span class="sev-badge ${sevClass(p.severidade)}">${sevLabel(p.severidade)}</span>
+          </div>
+          <p class="ponto-problema">${p.problema}</p>
+          ${p.evidencia ? `<p class="ponto-evidencia">${p.evidencia}</p>` : ''}
+        </div>`).join('');
+
+      const acoesHtml = (m.acoes || []).map(a => `
+        <div class="acao-item">
+          <div class="acao-meta">
+            <span class="prazo-badge">${a.prazo}</span>
+            <div class="impacto-dot ${impClass(a.impacto)}" title="Impacto ${a.impacto}"></div>
+          </div>
+          <span>${a.acao}</span>
+        </div>`).join('');
+
+      return `
+        <div class="momento-block">
+          <div class="momento-header">
+            <span class="momento-icon">${momentoIcons[m.nome] || '•'}</span>
+            <span class="momento-titulo">${m.nome}</span>
+            <span class="score-badge ${scoreClass(m.score)}">${scoreLabel(m.score)}</span>
+          </div>
+          <div class="momento-body">
+            <p class="momento-desc">${m.descricao}</p>
+            ${pontosHtml ? `<div class="pontos-label">Pontos de perda</div>${pontosHtml}` : ''}
+            ${acoesHtml ? `<div class="acoes-block"><div class="acoes-label">Ações corretivas</div>${acoesHtml}</div>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+
+    const planoHtml = (r.plano_90_dias || []).map(p => `
+      <div class="plano-item">
+        <span class="plano-semana">${p.semana}</span>
+        <div class="plano-content">
+          <div class="plano-foco">${p.foco}</div>
+          <div class="plano-acoes">
+            ${(p.acoes || []).map(a => `<div class="plano-acao"><span class="plano-dash">—</span><span>${a}</span></div>`).join('')}
+          </div>
+        </div>
+      </div>`).join('');
+
+    document.getElementById('result-view').innerHTML = `
+      <div class="result-header">
+        <span class="result-tag">Análise do MCC concluída</span>
+        <h1 class="result-title">${r.marca || ''}</h1>
+        <div class="score-geral ${scoreClass(r.score_geral)}">
+          <span>Situação geral: ${scoreLabel(r.score_geral)}</span>
+        </div>
+        <p class="result-resumo">${r.resumo_mcc || ''}</p>
+      </div>
+
+      <div class="section-label" style="margin-bottom:20px;">Os três momentos do MCC</div>
+      ${momentosHtml}
+
+      ${r.quick_win ? `
+      <div class="quickwin-block">
+        <span class="quickwin-label">Quick win — faça essa semana</span>
+        <p class="quickwin-text">${r.quick_win}</p>
+      </div>` : ''}
+
+      ${planoHtml ? `
+      <div class="section-label" style="margin-bottom:16px;">Plano de ação — 90 dias</div>
+      <div class="plano-block">${planoHtml}</div>` : ''}
+
+      <div class="action-bar">
+        <button class="action-btn" onclick="voltar()">← Nova análise</button>
+        <button class="action-btn" onclick="window.print()">Imprimir / salvar PDF</button>
+      </div>`;
+
+    document.getElementById('result-view').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function voltar() {
+    document.getElementById('result-view').style.display = 'none';
+    document.getElementById('result-view').innerHTML = '';
+    document.getElementById('form-view').style.display = 'block';
+    document.getElementById('runBtn').disabled = false;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>
