@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Agente de Diagnóstico — Lógica do Design®</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --black: #0e0e0e;
+    --white: #f8f6f1;
+    --cream: #ede9e0;
+    --accent: #c8b89a;
+    --muted: #8a8278;
+    --border: rgba(14,14,14,0.12);
+    --ok: #2d6a3f;
+    --ok-bg: #eaf3ed;
+    --med: #7a5c1a;
+    --med-bg: #fdf3dc;
+    --bad: #8b2323;
+    --bad-bg: #fceaea;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--white);
+    color: var(--black);
+    min-height: 100vh;
+    font-weight: 300;
+  }
+
+  .page { max-width: 720px; margin: 0 auto; padding: 0 24px 80px; }
+
+  header {
+    padding: 48px 0 40px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 48px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+  }
+
+  .logo-block { display: flex; flex-direction: column; gap: 6px; }
+
+  .logo-tag {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .logo-name {
+    font-family: 'DM Serif Display', serif;
+    font-size: 26px;
+    line-height: 1;
+    color: var(--black);
+  }
+
+  .logo-name em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .header-desc {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+    text-align: right;
+    max-width: 220px;
+  }
+
+  @media (max-width: 520px) {
+    header { flex-direction: column; align-items: flex-start; }
+    .header-desc { text-align: left; max-width: 100%; }
+  }
+
+  .section-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .card {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 28px;
+    margin-bottom: 16px;
+    background: var(--white);
+  }
+
+  .form-group { margin-bottom: 20px; }
+  .form-group:last-child { margin-bottom: 0; }
+
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  input, textarea {
+    width: 100%;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 300;
+    color: var(--black);
+    background: var(--cream);
+    border: 1px solid transparent;
+    border-radius: 3px;
+    padding: 11px 14px;
+    transition: border-color 0.15s;
+    outline: none;
+  }
+
+  input:focus, textarea:focus { border-color: var(--accent); background: #fff; }
+  textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
+  input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.6; }
+
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 500px) { .row { grid-template-columns: 1fr; } }
+
+  .hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+
+  .eixos-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+  @media (max-width: 480px) { .eixos-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .eixo-pill {
+    background: var(--cream);
+    border-radius: 3px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+  }
+
+  .eixo-num {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .eixo-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--black);
+  }
+
+  .run-btn {
+    width: 100%;
+    padding: 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    color: var(--white);
+    background: var(--black);
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background 0.15s, opacity 0.15s;
+  }
+
+  .run-btn:hover { background: #2a2a2a; }
+  .run-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .error-msg {
+    margin-top: 14px;
+    padding: 12px 16px;
+    background: var(--bad-bg);
+    color: var(--bad);
+    border-radius: 3px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .loading-wrap {
+    padding: 48px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .loading-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    color: var(--muted);
+    transition: color 0.3s;
+  }
+
+  .loading-step.active { color: var(--black); }
+  .loading-step.done { color: var(--ok); }
+
+  .step-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+
+  .loading-step.active .step-dot { background: var(--black); }
+  .loading-step.done .step-dot { background: var(--ok); }
+
+  .result-header { margin-bottom: 40px; }
+
+  .result-tag {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  .result-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 32px;
+    line-height: 1.15;
+    margin-bottom: 14px;
+  }
+
+  .result-resumo {
+    font-size: 15px;
+    line-height: 1.75;
+    color: #444;
+    max-width: 560px;
+  }
+
+  .eixo-block {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 28px;
+    margin-bottom: 14px;
+  }
+
+  .eixo-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .eixo-icon {
+    font-size: 18px;
+    width: 36px;
+    height: 36px;
+    background: var(--cream);
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .eixo-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px;
+    flex: 1;
+  }
+
+  .score-badge {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 2px;
+  }
+
+  .score-bom { background: var(--ok-bg); color: var(--ok); }
+  .score-medio { background: var(--med-bg); color: var(--med); }
+  .score-critico { background: var(--bad-bg); color: var(--bad); }
+
+  .eixo-analise {
+    font-size: 14px;
+    line-height: 1.8;
+    color: #333;
+    margin-bottom: 20px;
+  }
+
+  .recs-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .rec-item {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    line-height: 1.65;
+    color: #444;
+  }
+
+  .rec-item:last-child { margin-bottom: 0; }
+
+  .rec-dash {
+    color: var(--accent);
+    font-weight: 500;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .proximo-block {
+    background: var(--black);
+    color: var(--white);
+    border-radius: 4px;
+    padding: 28px;
+    margin-top: 8px;
+  }
+
+  .proximo-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  .proximo-text {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px;
+    line-height: 1.45;
+  }
+
+  .action-bar {
+    display: flex;
+    gap: 12px;
+    margin-top: 32px;
+    flex-wrap: wrap;
+  }
+
+  .action-btn {
+    padding: 12px 20px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background 0.15s;
+  }
+
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--black);
+  }
+
+  .btn-secondary:hover { background: var(--cream); }
+
+  footer {
+    margin-top: 60px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="logo-block">
+      <span class="logo-tag">Miligrama MG</span>
+      <div class="logo-name">Lógica do <em>Design</em>®</div>
+    </div>
+    <p class="header-desc">Agente de diagnóstico de presença digital nos 4 eixos do método</p>
+  </header>
+
+  <div id="form-view">
+    <div class="card">
+      <div class="section-label">Dados da marca</div>
+      <div class="form-group">
+        <label>Nome da marca</label>
+        <input type="text" id="nome" placeholder="Ex: Studio Silva Arquitetura" />
+      </div>
+      <div class="row">
+        <div class="form-group">
+          <label>Segmento</label>
+          <input type="text" id="segmento" placeholder="Ex: saúde, moda, arquitetura..." />
+        </div>
+        <div class="form-group">
+          <label>Cidade / região</label>
+          <input type="text" id="cidade" placeholder="Ex: Pouso Alegre, MG" />
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Canais digitais</div>
+      <div class="form-group">
+        <label>Site ou landing page</label>
+        <input type="text" id="site" placeholder="https://..." />
+      </div>
+      <div class="row">
+        <div class="form-group">
+          <label>Instagram</label>
+          <input type="text" id="instagram" placeholder="@usuario ou link" />
+        </div>
+        <div class="form-group">
+          <label>Google / Maps</label>
+          <input type="text" id="gmaps" placeholder="Link ou nome no Google" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Outros canais</label>
+        <input type="text" id="outros" placeholder="WhatsApp Business, Facebook, iFood..." />
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Métricas e contexto</div>
+      <div class="form-group">
+        <label>Dados de tráfego ou engajamento</label>
+        <textarea id="metricas" placeholder="Ex: 1.200 seguidores, engajamento 3%, 200 visitas/mês..."></textarea>
+        <p class="hint">Deixe em branco se não tiver — o agente analisa o que encontrar publicamente.</p>
+      </div>
+      <div class="form-group">
+        <label>Contexto adicional</label>
+        <textarea id="contexto" placeholder="Tempo de mercado, diferencial percebido, concorrentes, motivo do contato..."></textarea>
+      </div>
+    </div>
+
+    <div class="section-label">Eixos analisados</div>
+    <div class="eixos-grid">
+      <div class="eixo-pill"><div class="eixo-num">01</div><div class="eixo-name">Encontrabilidade</div></div>
+      <div class="eixo-pill"><div class="eixo-num">02</div><div class="eixo-name">Acessibilidade</div></div>
+      <div class="eixo-pill"><div class="eixo-num">03</div><div class="eixo-name">Completude</div></div>
+      <div class="eixo-pill"><div class="eixo-num">04</div><div class="eixo-name">Performance</div></div>
+    </div>
+
+    <button class="run-btn" id="runBtn" onclick="rodar()">Rodar diagnóstico →</button>
+    <div id="err"></div>
+  </div>
+
+  <div id="loading-view" style="display:none;">
+    <div class="loading-wrap">
+      <div class="loading-step" id="ls1"><div class="step-dot"></div>Buscando informações da marca...</div>
+      <div class="loading-step" id="ls2"><div class="step-dot"></div>Analisando encontrabilidade</div>
+      <div class="loading-step" id="ls3"><div class="step-dot"></div>Verificando acessibilidade e completude</div>
+      <div class="loading-step" id="ls4"><div class="step-dot"></div>Gerando diagnóstico final</div>
+    </div>
+  </div>
+
+  <div id="result-view" style="display:none;"></div>
+
+  <footer>
+    <span>Lógica do Design® — Miligrama MG</span>
+    <span>Diagnóstico gerado por IA com dados públicos</span>
+  </footer>
+
+</div>
+
+<script>
+  let stepTimer;
+
+  function setStep(n) {
+    for (let i = 1; i <= 4; i++) {
+      const el = document.getElementById('ls' + i);
+      if (!el) continue;
+      el.className = 'loading-step' + (i < n ? ' done' : i === n ? ' active' : '');
+    }
+  }
+
+  function startLoadingSteps() {
+    setStep(1);
+    let step = 1;
+    stepTimer = setInterval(() => {
+      step = Math.min(step + 1, 4);
+      setStep(step);
+    }, 2200);
+  }
+
+  async function rodar() {
+    const nome = document.getElementById('nome').value.trim();
+    const segmento = document.getElementById('segmento').value.trim();
+    const cidade = document.getElementById('cidade').value.trim();
+    const site = document.getElementById('site').value.trim();
+    const instagram = document.getElementById('instagram').value.trim();
+    const gmaps = document.getElementById('gmaps').value.trim();
+    const outros = document.getElementById('outros').value.trim();
+    const metricas = document.getElementById('metricas').value.trim();
+    const contexto = document.getElementById('contexto').value.trim();
+
+    const errEl = document.getElementById('err');
+    errEl.innerHTML = '';
+
+    if (!nome || !segmento) {
+      errEl.innerHTML = '<div class="error-msg">Preencha ao menos o nome da marca e o segmento.</div>';
+      return;
+    }
+
+    const canais = [
+      site ? 'Site: ' + site : '',
+      instagram ? 'Instagram: ' + instagram : '',
+      gmaps ? 'Google/Maps: ' + gmaps : '',
+      outros ? 'Outros: ' + outros : ''
+    ].filter(Boolean).join(' | ') || 'não informados';
+
+    document.getElementById('runBtn').disabled = true;
+    document.getElementById('form-view').style.display = 'none';
+    document.getElementById('loading-view').style.display = 'block';
+    startLoadingSteps();
+
+    try {
+      const res = await fetch('/api/diagnostico', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome, segmento, cidade, canais, metricas, contexto })
+      });
+
+      const data = await res.json();
+      clearInterval(stepTimer);
+
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Erro ao processar diagnóstico');
+      }
+
+      document.getElementById('loading-view').style.display = 'none';
+      renderResult(data);
+
+    } catch (err) {
+      clearInterval(stepTimer);
+      document.getElementById('loading-view').style.display = 'none';
+      document.getElementById('form-view').style.display = 'block';
+      document.getElementById('runBtn').disabled = false;
+      document.getElementById('err').innerHTML = '<div class="error-msg">Erro: ' + (err.message || 'Tente novamente') + '</div>';
+    }
+  }
+
+  function scoreClass(s) {
+    if (s === 'bom') return 'score-bom';
+    if (s === 'crítico') return 'score-critico';
+    return 'score-medio';
+  }
+
+  function scoreLabel(s) {
+    if (s === 'bom') return 'Bom';
+    if (s === 'crítico') return 'Crítico';
+    return 'Atenção';
+  }
+
+  const icons = { Encontrabilidade: '🔍', Acessibilidade: '📞', Completude: '📋', Performance: '📊' };
+
+  function renderResult(r) {
+    const eixosHtml = (r.eixos || []).map(e => `
+      <div class="eixo-block">
+        <div class="eixo-header">
+          <div class="eixo-icon">${icons[e.nome] || '·'}</div>
+          <div class="eixo-title">${e.nome}</div>
+          <span class="score-badge ${scoreClass(e.score)}">${scoreLabel(e.score)}</span>
+        </div>
+        <p class="eixo-analise">${e.analise}</p>
+        ${e.recomendacoes?.length ? `
+        <div class="recs-label">Recomendações</div>
+        ${e.recomendacoes.map(rec => `
+          <div class="rec-item"><span class="rec-dash">—</span><span>${rec}</span></div>
+        `).join('')}` : ''}
+      </div>
+    `).join('');
+
+    document.getElementById('result-view').innerHTML = `
+      <div class="result-header">
+        <span class="result-tag">Diagnóstico concluído</span>
+        <h1 class="result-title">${r.marca || ''}</h1>
+        <p class="result-resumo">${r.resumo_executivo || ''}</p>
+      </div>
+
+      ${eixosHtml}
+
+      ${r.proximo_passo ? `
+      <div class="proximo-block">
+        <span class="proximo-label">Próximo passo prioritário</span>
+        <p class="proximo-text">${r.proximo_passo}</p>
+      </div>` : ''}
+
+      <div class="action-bar">
+        <button class="action-btn btn-secondary" onclick="voltar()">← Novo diagnóstico</button>
+        <button class="action-btn btn-secondary" onclick="window.print()">Imprimir / salvar PDF</button>
+      </div>
+    `;
+
+    document.getElementById('result-view').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function voltar() {
+    document.getElementById('result-view').style.display = 'none';
+    document.getElementById('result-view').innerHTML = '';
+    document.getElementById('form-view').style.display = 'block';
+    document.getElementById('runBtn').disabled = false;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>
